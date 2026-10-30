@@ -18,9 +18,11 @@ const errorHandler = require("./src/middlewares/errorMiddleware");
 const userRoutes = require("./src/routes/user.routes");
 
 const connectDB = require("./src/config/db");
+
 const dns = require('node:dns/promises');
 // Set custom DNS servers to avoid potential DNS resolution issues in serverless environments
 dns.setServers(['8.8.8.8', '8.8.4.4']);
+
 // Connect to database (non-blocking for serverless)
 connectDB().catch((err) => {
   console.error("Initial DB connection failed:", err.message);
@@ -31,10 +33,7 @@ const app = express();
 
 app.use(cors());
 // Code-10 bug: custom header restricts allowed methods to GET and POST, breaking PUT/DELETE CORS preflights
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Methods", "GET, POST");
-  next();
-});
+
 app.use(express.json());
 
 // Middleware to ensure DB connection before handling requests

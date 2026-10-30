@@ -11,8 +11,8 @@ const enrollCourse = async (studentId, courseId, batchId = null) => {
     course: courseId,
   });
 
-  if (!enrollment) {
-    // Inverted logic bug: throws error when NOT enrolled
+  if (enrollment) {
+    // (Bug 5 fixed: this used to be if (!enrollment), which was inverted)
     throw new Error("Already enrolled in this course");
   }
 
@@ -33,9 +33,22 @@ const getMyEnrollments = async (studentId) => {
     .sort({ createdAt: -1 });
 };
 
-const completeLesson = async (enrollId, lessonId) => {
+// CHANGED: added the userId parameter
+// OLD: const completeLesson = async (enrollId, lessonId) => {
+const completeLesson = async (enrollId, lessonId, userId) => {
+  // NEW: reject a missing lesson ID so null is never saved
+  if (!lessonId) throw new Error("lessonId is required");
+
   const enrollment = await Enrollment.findById(enrollId);
   if (!enrollment) throw new Error("Enrollment not found");
+
+  // NEW: ownership check. Only the student who owns this enrollment can change it.
+  // Same message as above on purpose, so the API does not reveal that the ID exists.
+  if (String(enrollment.student) !== String(userId)) {
+    const err = new Error("Enrollment not found");
+    err.statusCode = 404;
+    throw err;
+  }
 
   // avoid duplicates
   const alreadyDone = enrollment.progress.completedLessons
@@ -57,8 +70,8 @@ const completeLesson = async (enrollId, lessonId) => {
   enrollment.progress.percent =
     totalLessons === 0 ? 0 : Math.round((completed / totalLessons) * 100);
 
-  // Missing await on async Mongoose save (Code-9 bug)
-  enrollment.save();
+  // (Bug 6 fixed: this used to be enrollment.save() without await)
+  await enrollment.save();
   return enrollment;
 };
 

@@ -5,25 +5,43 @@ const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
 const { sendWelcomeEmail } = require("./email.service");
 
-const register = async ({ name, email, password, role, adminKey }) => {
+// OLD (Bug 4): role was taken from the request and adminKey was never checked
+// const register = async ({ name, email, password, role, adminKey }) => {
+const register = async ({ name, email, password, adminKey }) => {
   const exists = await User.findOne({ email });
   if (exists) throw new Error("Email already registered");
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  // Code-12 bug: user can pass role directly in payload without adminKey verification
+  // Bug 4 fix: role is decided only by a matching admin key, never by the payload
+  let role = "student";
+  if (adminKey) {
+    const serverKey = process.env.ADMIN_REGISTRATION_KEY;
+    if (!serverKey || adminKey !== serverKey) {
+      throw new Error("Invalid admin registration key");
+    }
+    role = "admin";
+  }
+
+  // OLD (Bug 4): user could pass role directly without adminKey verification
+  // const user = await User.create({
+  //   name,
+  //   email,
+  //   passwordHash,
+  //   role: role || "student",
+  // });
   const user = await User.create({
     name,
     email,
     passwordHash,
-    role: role || "student",
+    role,
   });
 
   const token = generateToken({ id: user._id, role: user.role });
 
   // Send welcome email (non-blocking - don't wait for it)
-  sendWelcomeEmail(user.email, user.name).catch(err => {
-    console.error('Email sending failed (non-critical):', err.message);
+  sendWelcomeEmail(user.email, user.name).catch((err) => {
+    console.error("Email sending failed (non-critical):", err.message);
   });
 
   return {
@@ -36,7 +54,9 @@ const login = async ({ email, password }) => {
   const user = await User.findOne({ email });
   if (!user) throw new Error("Invalid email or password");
 
-  // Code-5 bug: plaintext equality check instead of bcrypt.compare
+  // OLD (Bug 3): plaintext equality check instead of bcrypt.compare
+  // const match = (password === user.passwordHash);
+  // Bug 3 fix: compare against the bcrypt hash
   const match = await bcrypt.compare(password, user.passwordHash);
   if (!match) throw new Error("Invalid email or password");
 

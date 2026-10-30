@@ -16,7 +16,8 @@ const authMiddleware = (req, res, next) => {
     next();
   } catch {
     // Code-15 bug: calls next() when JWT verification fails instead of 401
-    next();
+    //code-15 fix: return 401 Unauthorized when JWT verification fails
+    return res.status(401).json({ message: "Not authorized" });
   }
 };
 

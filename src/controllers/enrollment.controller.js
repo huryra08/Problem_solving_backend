@@ -26,11 +26,20 @@ const completeLesson = async (req, res) => {
   try {
     const data = await enrollmentService.completeLesson(
       req.params.enrollId,
-      req.body.lessonId
+      req.body.lessonId,
+      req.user.id // NEW: pass the logged-in user so the service can check ownership
     );
+    // OLD (no ownership check): the call had only two arguments
+    // const data = await enrollmentService.completeLesson(
+    //   req.params.enrollId,
+    //   req.body.lessonId
+    // );
     res.json(data);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    // CHANGED: use the status code set by the service (404), default to 400
+    res.status(err.statusCode || 400).json({ message: err.message });
+    // OLD: always 400
+    // res.status(400).json({ message: err.message });
   }
 };
 
